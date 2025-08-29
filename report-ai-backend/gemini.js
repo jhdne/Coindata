@@ -4,7 +4,7 @@ class GeminiService {
   constructor() {
     this.client = null;
     this.model = null;
-    this.embeddingModel = null; // 新增：用于向量嵌入的模型
+    this.embeddingModel = null;
   }
 
   async initialize() {
@@ -15,9 +15,8 @@ class GeminiService {
       }
 
       this.client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      // 修改：更新为当前推荐的聊天模型
-      this.model = this.client.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
-      // 新增：初始化向量嵌入模型
+      // 修改：将模型名称更新为 gemini-2.0-flash
+      this.model = this.client.getGenerativeModel({ model: 'gemini-2.0-flash' }); 
       this.embeddingModel = this.client.getGenerativeModel({ model: 'embedding-001' });
       
       console.log('✅ Gemini AI 客户端初始化成功');
@@ -27,7 +26,7 @@ class GeminiService {
       return false;
     }
   }
-  
+
   // 新增：用于将文本转换为向量的函数
   async embedQuery(query) {
     try {
