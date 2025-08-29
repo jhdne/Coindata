@@ -9,14 +9,14 @@ class PineconeService {
 
   async initialize() {
     try {
-      if (!process.env.PINECONE_API_KEY) {
-        console.log('⚠️ PINECONE_API_KEY 未设置，使用模拟数据');
+      if (!process.env.PINECONE_API_KEY || !process.env.PINECONE_ENVIRONMENT) {
+        console.log('⚠️ PINECONE 环境变量未完全设置，将使用模拟数据');
         return false;
       }
 
       this.client = new Pinecone({
         apiKey: process.env.PINECONE_API_KEY,
-        environment:process.env.PINECONE_ENVIRONMENT
+        environment: process.env.PINECONE_ENVIRONMENT
       });
 
       this.index = this.client.index(this.indexName);
@@ -28,41 +28,11 @@ class PineconeService {
     }
   }
 
-  async embedQuery(query) {
-    try {
-      if (!this.client) {
-        throw new Error('Pinecone 客户端未初始化');
-      }
-
-      console.log(`🔍 正在对查询文本进行向量化: "${query}"`);
-      
-      const response = await this.client.inference.embed(
-        'llama-text-embed-v2',
-        [query],
-        { inputType: 'query', truncate: 'END' }
-      );
-
-      if (response && response.data && response.data.length > 0) {
-        const embedding = response.data[0].values;
-        console.log(`✅ 查询向量化成功，维度: ${embedding.length}`);
-        return embedding;
-      } else {
-        throw new Error('向量化响应格式错误');
-      }
-    } catch (error) {
-      console.error('❌ 查询向量化失败:', error);
-      throw error;
-    }
-  }
-
-  async searchSimilarTokens(query, topK = 10, tags = []) {
+  async searchSimilarTokens(queryVector, topK = 10, tags = []) {
     try {
       if (!this.index) {
         throw new Error('Pinecone 索引未初始化');
       }
-
-      // 向量化查询
-      const queryVector = await this.embedQuery(query);
 
       // 构建过滤条件
       let filter = {};
@@ -70,7 +40,7 @@ class PineconeService {
         filter.tags = { $in: tags };
       }
 
-      console.log(`🔍 正在搜索相似代币，top_k=${topK}`);
+      console.log(`🔍 正在使用向量在Pinecone中搜索，top_k=${topK}`);
       
       const searchResponse = await this.index.query({
         vector: queryVector,
@@ -96,7 +66,7 @@ class PineconeService {
 
       return results;
     } catch (error) {
-      console.error('❌ 搜索失败:', error);
+      console.error('❌ Pinecone搜索失败:', error);
       throw error;
     }
   }
@@ -159,55 +129,27 @@ class PineconeService {
 
   getLogoFromSymbol(symbol) {
     const logoMap = {
-      'BTC': '₿',
-      'ETH': 'Ξ',
-      'SOL': '◎',
-      'ADA': '₳',
-      'DOT': '●',
-      'MATIC': '⬟',
-      'AVAX': '🔺',
-      'LINK': '🔗',
-      'UNI': '🦄',
-      'ATOM': '⚛️'
+      'BTC': '₿', 'ETH': 'Ξ', 'SOL': '◎', 'ADA': '₳', 'DOT': '●',
+      'MATIC': '⬟', 'AVAX': '🔺', 'LINK': '🔗', 'UNI': '🦄', 'ATOM': '⚛️'
     };
     return logoMap[symbol.toUpperCase()] || (symbol ? symbol[0] : '?');
   }
 
   extractUrl(urlsDict, urlType) {
-    if (!urlsDict || typeof urlsDict !== 'object') {
-      return this.getDefaultUrl(urlType);
-    }
-    
+    if (!urlsDict || typeof urlsDict !== 'object') return '#';
     const possibleKeys = {
       'website': ['website', 'homepage', 'official'],
       'whitepaper': ['whitepaper', 'technical_doc', 'paper'],
       'twitter': ['twitter', 'x', 'social_twitter']
     };
-    
     const keysToTry = possibleKeys[urlType] || [urlType];
-    
     for (const key of keysToTry) {
       if (urlsDict[key]) {
         const url = urlsDict[key];
-        if (Array.isArray(url) && url.length > 0) {
-          return url[0];
-        } else if (typeof url === 'string') {
-          return url;
-        }
+        return Array.isArray(url) && url.length > 0 ? url[0] : typeof url === 'string' ? url : '#';
       }
     }
-    
-    return this.getDefaultUrl(urlType);
-  }
-
-  getDefaultUrl(urlType) {
-    const defaults = {
-      'website': 'https://example.com',
-      'whitepaper': 'https://example.com/whitepaper',
-      'twitter': 'https://twitter.com'
-    };
-    
-    return defaults[urlType] || '#';
+    return '#';
   }
 }
 

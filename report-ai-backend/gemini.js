@@ -4,6 +4,7 @@ class GeminiService {
   constructor() {
     this.client = null;
     this.model = null;
+    this.embeddingModel = null; // 新增：用于向量嵌入的模型
   }
 
   async initialize() {
@@ -14,12 +15,32 @@ class GeminiService {
       }
 
       this.client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      this.model = this.client.getGenerativeModel({ model: 'gemini-pro' });
+      // 修改：更新为当前推荐的聊天模型
+      this.model = this.client.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+      // 新增：初始化向量嵌入模型
+      this.embeddingModel = this.client.getGenerativeModel({ model: 'embedding-001' });
+      
       console.log('✅ Gemini AI 客户端初始化成功');
       return true;
     } catch (error) {
       console.error('❌ Gemini AI 初始化失败:', error);
       return false;
+    }
+  }
+  
+  // 新增：用于将文本转换为向量的函数
+  async embedQuery(query) {
+    try {
+      if (!this.embeddingModel) {
+        throw new Error('Gemini 向量嵌入模型未初始化');
+      }
+      console.log(`🔍 正在使用Gemini对查询文本进行向量化: "${query}"`);
+      const result = await this.embeddingModel.embedContent(query);
+      const embedding = result.embedding;
+      return embedding.values;
+    } catch (error) {
+      console.error('❌ Gemini 向量化失败:', error);
+      throw error;
     }
   }
 
@@ -36,10 +57,15 @@ class GeminiService {
 用户输入：${userInput}
 
 请提取以下类型的关键词：
-1. 技术特征（如：DeFi、NFT、Layer2、跨链等）
+1. 技术特征（如：DeFi、NFT、Layer2、创新、唯一、跨链等）
 2. 应用场景（如：支付、游戏、元宇宙、存储等）
 3. 特殊属性（如：通缩、治理、质押等）
-4. 市场特征（如：新兴、成熟、高增长等）
+4. 项目背景（如：叙事等）
+5. 项目领域（如：热门、趋势、新兴、成熟、高增长等）
+6. 团队特征（如：实力、成熟、经验等）
+7. 社区特征（如：规模、质量、潜力等）
+8. 代币经济（如：通缩、启动、分配、公平、价值等）
+
 
 请只返回关键词，用逗号分隔，不要解释。
 `;
@@ -48,7 +74,7 @@ class GeminiService {
       const response = await result.response;
       const keywords = response.text().trim();
       
-      console.log(`🔍 Gemini提炼的搜索关键词: ${keywords}`);
+      console.log(`✅ Gemini提炼的搜索关键词: ${keywords}`);
       return keywords;
     } catch (error) {
       console.error('❌ Gemini关键词提取失败:', error);
@@ -136,7 +162,6 @@ ${enhancedPrompt}
 - 总供应量：${tokenData.totalSupply}
 `;
 
-    // 添加URL信息
     if (tokenData.website && tokenData.website !== '#') {
       prompt += `- 官方网站：${tokenData.website}\n`;
     }
@@ -146,8 +171,6 @@ ${enhancedPrompt}
     if (tokenData.twitterUrl && tokenData.twitterUrl !== '#') {
       prompt += `- 推特：${tokenData.twitterUrl}\n`;
     }
-
-    // 添加匹配度信息
     if (tokenData.score) {
       prompt += `- 匹配度评分：${tokenData.score}\n`;
     }
